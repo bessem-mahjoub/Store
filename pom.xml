@@ -12,6 +12,27 @@
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
+    <!-- Utilise ton Nexus comme source de dépendances -->
+    <repositories>
+        <repository>
+            <id>nexus</id>
+            <url>http://192.168.33.10:8081/repository/maven-public/</url>
+        </repository>
+    </repositories>
+
+    <!-- Permet de publier sur Nexus (releases + snapshots) -->
+    <distributionManagement>
+        <repository>
+            <id>nexus-releases</id>
+            <name>Internal Releases</name>
+            <url>http://192.168.33.10:8081/repository/maven-releases/</url>
+        </repository>
+        <snapshotRepository>
+            <id>nexus-snapshots</id>
+            <name>Internal Snapshots</name>
+            <url>http://192.168.33.10:8081/repository/maven-snapshots/</url>
+        </snapshotRepository>
+    </distributionManagement>
 
     <dependencies>
         <!-- <dependency>
