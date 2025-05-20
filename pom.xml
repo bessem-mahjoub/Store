@@ -15,9 +15,10 @@
     <!-- Utilise ton Nexus comme source de dépendances -->
     <repositories>
         <repository>
-            <id>nexus</id>
+            <id>internal-nexus</id>
             <url>http://192.168.33.10:8081/repository/maven-public/</url>
         </repository>
+
     </repositories>
 
     <!-- Permet de publier sur Nexus (releases + snapshots) -->
