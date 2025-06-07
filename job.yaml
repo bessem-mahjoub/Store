@@ -1,0 +1,11 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mon-job-java
+spec:
+  template:
+    spec:
+      containers:
+      - name: mon-job
+        image: bessem13/mystoreapp:latest
+      restartPolicy: Never
