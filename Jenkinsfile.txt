@@ -1,20 +1,127 @@
-pipeline {
+ pipeline {
     agent any
-
+        environment {
+        SONARQUBE_SERVER = 'Store_Mahjoub' 
+        SONAR_PROJECT_KEY = 'sqp_c0afd263828314507ad9c5d5938b5bddec42f084'
+    }
     stages {
-        stage('Checkout GIT') {
+        stage('Clonage du dépôt') {
             steps {
-                echo 'Pulling...'
-                git branch: 'main',
-                    url: 'https://github.com/bessem-mahjoub/Store'
+                echo '📥 Clonage du dépôt Git'
+                git branch: 'main', url: 'https://github.com/Bessem-Mahjoub/store.git'
             }
         }
-
-        stage('Check Maven Version') {
+        stage('Tests unitaires') {
+    steps {
+        echo '🧪 Exécution des tests JUnit'
+        sh 'mvn test'
+            }
+        }
+                stage('Run Tests') {
             steps {
-                echo 'Checking Maven version...'
+                sh 'mvn clean verify'
+            }
+        }
+        stage('JaCoCo Coverage Report') {
+            steps {
+                echo '📊 Génération du rapport JaCoCo'
+                withSonarQubeEnv('Store_Mahjoub') {
+                    sh '''
+                        mvn sonar:sonar \
+                        -Dsonar.projectKey=store-mahjoub \
+                        -Dsonar.projectName=store-mahjoub \
+                        -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+                    '''
+                }
+            }
+        }
+        stage('Test Maven') {
+            steps {
                 sh 'mvn -version'
             }
         }
+        stage('Test Git') {
+            steps {
+                sh 'git --version'
+            }
+        }
+        stage('Build Maven') {
+            steps {
+                echo '⚙️ Compilation du projet Maven'
+                sh 'mvn clean package -DskipTests'
+            }
+        }
+stage('Clean Nexus Snapshots') {
+    steps {
+        withCredentials([usernamePassword(credentialsId: 'nexus-credentials', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+            sh '''
+                apt-get update && apt-get install -y jq  # si pas déjà installé
+                NEXUS_URL="http://192.168.33.10:8081"
+                REPO="maven-snapshots"
+                components=$(curl -s -u $NEXUS_USER:$NEXUS_PASS "$NEXUS_URL/service/rest/v1/components?repository=$REPO")
+                echo "$components" | jq -r '.items[] | select(.version | test("SNAPSHOT")) | .id' | while read id; do
+                    echo "Suppression du composant id=$id"
+                    curl -s -u $NEXUS_USER:$NEXUS_PASS -X DELETE "$NEXUS_URL/service/rest/v1/components/$id"
+                done
+            '''
+        }
     }
 }
+
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('Store_Mahjoub') {
+                    sh '''
+                    mvn sonar:sonar \
+                        -Dsonar.projectKey=store-mahjoub \
+                        -Dsonar.projectName=store-mahjoub \
+                        -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+                    '''
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                echo '🐳 Construction de l’image Docker'
+                sh 'docker build -t mon-projet-java:latest .'
+            }
+        }
+
+        stage('Run Docker Container') {
+            steps {
+                echo '🚀 Lancement du conteneur'
+                sh 'docker run -d -p 9090:8080 mon-projet-java:latest'
+            }
+        }
+    }
+
+    post {
+           always {
+            echo '📦 Archivage des rapports JaCoCo'
+            script {
+                def reportExists = fileExists('target/site/jacoco/index.html')
+                if (reportExists) {
+                    archiveArtifacts artifacts: 'target/site/jacoco/**'
+                    publishHTML(target: [
+                        reportDir: 'target/site/jacoco',
+                        reportFiles: 'index.html',
+                        reportName: 'JaCoCo Coverage Report',
+                        keepAll: true
+                    ])
+                } else {
+                    echo "⚠️ Rapport JaCoCo non trouvé, rien à archiver."
+                }
+            }
+        }
+        success {
+            echo '✅ Pipeline exécuté avec succès !'
+        }
+        failure {
+            echo '❌ Échec du pipeline.'
+        }
+    }
+
+}
+
+
